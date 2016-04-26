@@ -6,22 +6,47 @@
 (require json)
 
 (require "api-key.rkt")
-(provide boxet)
+(provide list-directory)
 
+(define api-base "https://api.dropboxapi.com/2/")
+(define header-type "Content-Type: application/json")
+(define header-auth (string-append "Authorization: Bearer " api-key))
 
-;; short example of how to call dropbox-api... to be expanded upon soon.
-(define (boxet)
-  (define api-base "https://api.dropboxapi.com/2/")
-  (define header-auth (string-append "Authorization: Bearer " api-key))
-  (define header-type "Content-Type: application/json")
-  (define data "{\"path\":\"\"}")
+(define (safe-hash-ref h k)
+  (if (and (hash? h) (hash-has-key? h k)) (hash-ref h k) (make-hash)))
 
-  (define url (string->url "https://api.dropboxapi.com/2/files/list_folder"))
+(define (hash->strlist h)
+  (cond [(list? h) (map hash->strlist h)]
+        [(symbol? h) (symbol->string h)]
+        [(not (hash? h)) h]
+        [else (hash-map h (lambda (k v) (list (hash->strlist k) (hash->strlist v))))]))
 
-  (define-values (status info resp)
-    (http-sendrecv/url url
-                       #:method "POST"
+(define (call-api endpoint method data)
+  (define-values (status header resp)
+    (http-sendrecv/url (string->url (string-append api-base endpoint))
+                       #:method method
                        #:headers (list header-auth header-type)
                        #:data data))
-  (define json (read-json resp))
-  (define result (jsexpr->string json)))
+  (read-json resp))
+
+;; return listing of the directory given in json format
+(define (list-directory-jsexpr dir)
+  (define end-point "files/list_folder")
+  (define method "POST")
+  (define data (string-append "{\"path\":\"" dir "\"}"))
+  (call-api end-point method data))
+
+(define (list-directory-json dir)
+  (jsexpr->string (list-directory-jsexpr dir)))
+
+
+(define (list-directory dir)
+  (define jsexpr (list-directory-jsexpr dir))
+  (hash->strlist (safe-hash-ref jsexpr 'entries)))
+
+
+(define (boxet)
+  (list-directory ""))
+
+
+(boxet)
