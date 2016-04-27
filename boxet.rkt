@@ -5,7 +5,8 @@
 (require net/url)
 (require json)
 
-(require "api-key.rkt")
+(require "api-key.rkt"
+         "json-builder.rkt")
 (provide list-directory)
 
 (define api-base "https://api.dropboxapi.com/2/")
@@ -33,7 +34,8 @@
 (define (list-directory-jsexpr dir)
   (define end-point "files/list_folder")
   (define method "POST")
-  (define data (string-append "{\"path\":\"" dir "\"}"))
+  ;(define data (string-append "{\"path\":\"" dir "\"}"))
+  (define data (build-json (make-json-obj (list (make-json-kv "path" dir)))))
   (call-api end-point method data))
 
 (define (list-directory-json dir)
