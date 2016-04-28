@@ -1,43 +1,53 @@
 #lang racket
 
 (require rackunit json)
-(provide build-json)
+(provide (all-defined-out))
 
 
 (define (remove-spaces str)
   (string-replace str " " ""))
 
 ;; a json array is a (listof (anyof string json-array json-obj))
-(define-struct json-array (items))
+(define-struct json-array (items) #:prefab)
 
 ;; a json-obj is a (listof json-kv)
-(define-struct json-obj (kvs))
+(define-struct json-obj (kvs) #:prefab)
 
 ;; a kv is a
 ;; key: string
 ;; value: (anyof string json-array json-obj)
-(define-struct json-kv (k v))
+(define-struct json-kv (k v) #:prefab)
 
 
-;; takes a list of keys and values (list key1 val1 key2 val2 key3 val3 ... keyn valn)
-;; (typeof key) => string
-;; (typeof val) => (anyof string json-array json-obj)
-;; and produces a string representing the json
+(define json-true #t)
+
+(define json-false #f)
+
+
+;; takes a valid json object or array (json-obj, json-array)
+;; and produces the corresponding string representation
+;; eg. (build-json (make-json-obj (list (make-json-kv "key1" "val1")
+;;                                      (make-json-kv "key2" "val2")
+;;                                      (make-json-kv "key3" "val3"))))
+;; produces:
 ;; {
 ;;   key1: val1,
 ;;   key2: val2,
 ;;   key3: val3
 ;; }
-(define (build-json item)
-  (cond [(empty? item) ""]
-        [(string? item) (string-append "\"" item "\"")]
-        [(number? item) item]
-        [(json-array? item)
-         (string-append "[" (string-join (map build-json (json-array-items item)) ",") "]")]
-        [(json-kv? item)
-         (string-append (build-json (json-kv-k item)) ":" (build-json (json-kv-v item)))]
-        [(json-obj? item)
-         (define kvs (json-obj-kvs item))
+(define (build-json expr)
+  (cond [(empty? expr) ""]
+        [(number? expr) (number->string expr)]
+        [(equal? json-true expr) "true"]
+        [(equal? json-false expr) "false"]
+        [(equal? json-null expr) "null"]
+        [(string? expr) (string-append "\"" expr "\"")]
+        [(json-array? expr)
+         (string-append "[" (string-join (map build-json (json-array-items expr)) ",") "]")]
+        [(json-kv? expr)
+         (string-append (build-json (json-kv-k expr)) ":" (build-json (json-kv-v expr)))]
+        [(json-obj? expr)
+         (define kvs (json-obj-kvs expr))
          (string-append "{" (string-join (map build-json kvs) ",") "}")]))
 
 (test-case
@@ -72,9 +82,11 @@
   (check-equal?
    (build-json (make-json-obj
                 (list (make-json-kv "x" (make-json-obj (list (make-json-kv "a" (make-json-array (list "x" "y" "z"))))))
-                      (make-json-kv "u" (make-json-array (list "1" "2" "3"))))))
-   (remove-spaces "{ \"x\": { \"a\": [\"x\", \"y\", \"z\"] }, \"u\": [\"1\", \"2\", \"3\"] }"))
+                      (make-json-kv "u" (make-json-array (list "1" 2 json-null json-false json-true))))))
+   (remove-spaces "{ \"x\": { \"a\": [\"x\", \"y\", \"z\"] }, \"u\": [\"1\", 2, null, false, true] }"))
 
   (check-equal?
-   (hash? (string->jsexpr (build-json (make-json-obj (list (make-json-kv "a" (make-json-array (list "1" "b"))))))))
-   #t))
+   (hash? (string->jsexpr (build-json (make-json-obj (list (make-json-kv "a" (make-json-array (list "1" "b")))))))) #t))
+
+(define (build-jsexpr expr)
+  (string->jsexpr (build-json expr)))
