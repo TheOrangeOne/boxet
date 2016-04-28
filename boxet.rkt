@@ -67,3 +67,17 @@
   (filter (λ (x) (not (string=? x "name")))
           (flatten (map (λ (x) (filter (λ (x) (equal? (first x) "name")) x))
                         (list-directory path rec mi id)))))
+
+;; copy a file or folder to a different location in the user's dropbox
+;; if the source path is a folder all its contents will be copied
+;; from_path: string
+;;   path in the user's Dropbox to be copied or moved
+;; to_path: string
+;;   path in the user's Dropbox that is the destination
+(define (copy-file from to)
+  (define end-point "files/copy")
+  (define method "POST")
+  (define data (build-json
+                (make-json-obj (list (make-json-kv "from_path" from)
+                                     (make-json-kv "to_path" to)))))
+  (call-api end-point method data))
